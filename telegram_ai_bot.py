@@ -6,12 +6,13 @@ import google.generativeai as genai
 from collections import deque
 import requests
 from PIL import Image
-from io import BytesIO
+from io import BytesIO, StringIO
 import mimetypes
 import aiohttp
 import chardet
 import re
-from PyPDF2 import PdfReader
+from pdfminer.high_level import extract_text_to_fp
+from pdfminer.layout import LAParams
 import logging
 
 # Set up logging
@@ -20,16 +21,16 @@ logger = logging.getLogger(__name__)
 
 # تعريف الروابط
 LINKS = {
-    "github": "https://github.com/farsabdraouf",
-    "quran": "https://radio-quran.surge.sh/",
-    "hadith": "https://search-hadith.vercel.app/",
-    "website": "https://fars-dev.online/"
+    "github": "github.com/farsabdraouf",
+    "quran": "radio-quran.surge.sh",
+    "hadith": "sahih.vercel.app",
+    "website": "fars-dev.online"
 }
 
 # Set API keys
-TELEGRAM_TOKEN = "your_telegram_bot_token"
-GEMINI_API_KEY = "your_gemini_api_key"
-SEGMIND_API_KEY = "your_segmind_api_key"
+TELEGRAM_TOKEN = "6517013806:AAEqkWoUiAyRKDPKQlkEbF3QAPgn5K9XrKU"
+GEMINI_API_KEY = "AIzaSyDK4SZCX0oQ5EjfBYizJj7PmWIlGBNd6VI"
+SEGMIND_API_KEY = "SG_71dcd7b0e5e94702"
 
 # Setup Gemini
 genai.configure(api_key=GEMINI_API_KEY)
@@ -63,7 +64,7 @@ context_store = {}
 
 # Constants
 MAX_MESSAGE_LENGTH = 4096
-MAX_PDF_PAGES = 6
+MAX_PDF_PAGES = 10
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
@@ -159,7 +160,7 @@ async def generate_image_api(prompt):
                 raise Exception(f"Error generating image: {await response.text()}")
 
 def clean_markdown(text):
-    markdown_chars = ['*', '_', '`', '[', ']', '(', ')', '#', '>', '~', '|']
+    markdown_chars = ['*', '_', '[', ']', '#', '~', '|']
     for char in markdown_chars:
         text = text.replace(char, '')
     text = re.sub(r'(-{3,}|\*{3,}|_{3,})', '', text)
@@ -189,14 +190,16 @@ async def analyze_file_content(file_bytes, file_name, file_type):
         elif file_type.startswith('video/'):
             content_preview = "Video file detected. Full content analysis not implemented."
         elif file_type == 'application/pdf':
-            pdf_reader = PdfReader(file_bytes)
-            num_pages = len(pdf_reader.pages)
+            output_string = StringIO()
+            extract_text_to_fp(file_bytes, output_string, laparams=LAParams(), output_type='text', codec='utf-8')
+            pdf_text = output_string.getvalue()
+            num_pages = pdf_text.count('\f') + 1  # '\f' is the form feed character, indicating page breaks
             content_preview = f"PDF file with {num_pages} pages.\n\nContent preview:\n"
             
-            for i in range(min(num_pages, MAX_PDF_PAGES)):
-                page = pdf_reader.pages[i]
-                page_text = page.extract_text()
-                content_preview += f"\nPage {i+1} preview: {truncate_text(page_text, 200)}\n"
+            # Split the text into pages
+            pages = pdf_text.split('\f')
+            for i, page_text in enumerate(pages[:MAX_PDF_PAGES]):
+                content_preview += f"\nPage {i+1} preview: {truncate_text(page_text.strip(), 200)}\n"
             
             if num_pages > MAX_PDF_PAGES:
                 content_preview += f"\n... (Previewed {MAX_PDF_PAGES} out of {num_pages} pages)"
