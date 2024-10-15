@@ -28,9 +28,9 @@ LINKS = {
 }
 
 # Set API keys
-TELEGRAM_TOKEN = "6517013806:AAEqkWoUiAyRKDPKQlkEbF3QAPgn5K9XrKU"
-GEMINI_API_KEY = "AIzaSyDK4SZCX0oQ5EjfBYizJj7PmWIlGBNd6VI"
-SEGMIND_API_KEY = "SG_71dcd7b0e5e94702"
+TELEGRAM_TOKEN = "your_telegram_bot_token"
+GEMINI_API_KEY = "your_gemini_api_key"
+SEGMIND_API_KEY = "your_segmind_api_key"
 
 # Setup Gemini
 genai.configure(api_key=GEMINI_API_KEY)
